@@ -1,0 +1,10 @@
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "## Key Findings\n\n- Sample finding for offline testing.\n- Second bullet.\n\n## Sources\n\n- [Example](https://example.com)\n\n## Suggested Next Questions\n\n1. What would you validate next?\n2. What constraints apply?\n"
+      }
+    }
+  ]
+}
