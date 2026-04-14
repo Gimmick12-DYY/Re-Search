@@ -1,98 +1,84 @@
 # Re-Search
 
-On-demand **Perplexity API → Markdown → Obsidian** pipeline. Run a research query, get structured notes, and create or append a note in your vault using the [Obsidian CLI](https://obsidian.md/cli).
+**Perplexity API → Markdown** notes in your Obsidian vault folder. Default flow: set `ONCE_DEFAULT_OUT_DIR` once, then run `npm run once -- -research "..."`.
+
+Optional: use `-obsidian` to call the [Obsidian CLI](https://obsidian.md/cli) (with automatic fallback to file output when `ONCE_DEFAULT_OUT_DIR` is set).
 
 ## Prerequisites
 
 - **Node.js 18+**
-- **Perplexity API key** — set `PERPLEXITY_API_KEY` (see [Perplexity API docs](https://docs.perplexity.ai/))
-- **Obsidian 1.12.4+** with CLI enabled:
-  - Settings → **General** → **Command line interface** → enable and register
-  - Ensure `obsidian` is on your `PATH` (restart terminal after setup)
+- **Perplexity API key** — `PERPLEXITY_API_KEY` (see [Perplexity API docs](https://docs.perplexity.ai/))
+- **Obsidian CLI** (optional): Settings → **General** → **Command line interface**, register CLI, `obsidian` on `PATH`
 
 ## Setup
 
 ```bash
 cp .env.example .env
-# Edit .env and set PERPLEXITY_API_KEY=...
-```
-
-Load env vars in your shell (or use a tool like `direnv`):
-
-```bash
+# Edit .env or export in shell:
 export PERPLEXITY_API_KEY="your-key"
-# Optional if you use multiple vaults:
-export OBSIDIAN_VAULT="YourVaultName"
+export ONCE_DEFAULT_OUT_DIR="/path/to/your/vault/Import"
+# Optional for Obsidian CLI:
+export OBSIDIAN_VAULT="Gimmicks"
 ```
 
 ## Usage
 
+**Short command** (recommended when `ONCE_DEFAULT_OUT_DIR` is set):
+
 ```bash
-# Preferred command name
-npm run once -- -research "Your research question" -obsidian
+cd "/path/to/Re-Search"
+npm run once -- -research "Your question"
+```
 
-# Preview Markdown only (still calls Perplexity unless you use --fixture)
-npm run once -- -research "Your research question" -dry-run
+Other examples:
 
-# Create a note in the vault root (calls Obsidian CLI)
-npm run once -- -research "Your research question" -obsidian
+```bash
+# Preview only (stdout)
+npm run once -- -research "Your question" -dry-run
 
-# Put the note in a folder inside the vault
-npm run once -- -research "..." -folder "Research/Inbox" -obsidian
+# Explicit file path
+npm run once -- -research "Your question" -out "/path/to/note.md"
 
-# Custom title / filename base (sanitized)
-npm run once -- -research "..." -title "My Topic Note" -obsidian
+# Obsidian CLI (falls back to ONCE_DEFAULT_OUT_DIR if CLI fails)
+npm run once -- -research "Your question" -folder "Import" -obsidian
 
-# Append to an existing note with the same path
-npm run once -- -research "..." -folder "Research" -title "Running log" -append -obsidian
-
-# Use a different Perplexity model
-npm run once -- -research "..." -model sonar-pro -obsidian
-
-# Offline / CI: skip Perplexity using a saved JSON body (same shape as API response)
-npm run once -- -research "Fixture test" -fixture fixtures/sample-completion.json -dry-run
+# Offline test (no API)
+npm run once -- -research "Fixture" -fixture fixtures/sample-completion.json -dry-run
 ```
 
 ### CLI flags
 
 | Flag | Description |
 |------|-------------|
-| `-research` | Alias for `--query` (**required** unless `--query` is used) |
-| `-obsidian` | Explicit Obsidian-write mode for `once` command |
-| `--query` | **Required.** Research question or prompt |
-| `--context` | Extra context appended to the user message |
-| `--folder` | Vault subpath, e.g. `Research/Inbox` |
-| `--title` | Note title / basename (default: `YYYY-MM-DD-slug`) |
-| `--vault` | Vault name, or use `OBSIDIAN_VAULT` |
-| `--model` | Perplexity model (default: `sonar`) |
-| `--append` | Pass `--append` to Obsidian CLI |
-| `--dry-run` | Print Markdown to stdout; do not call Obsidian |
-| `--fixture` | JSON file with `choices[0].message.content` (skips API) |
-| `-h`, `--help` | Help |
+| `-research` | Research question (alias for `--query`) |
+| `--query` | Same as `-research` |
+| `-context` / `--context` | Extra context |
+| `-folder` / `--folder` | Subpath for note name (e.g. `Import`) |
+| `-title` / `--title` | Note title / filename base |
+| `-vault` / `--vault` | Vault name for Obsidian CLI |
+| `-model` / `--model` | Perplexity model (default: `sonar`) |
+| `-append` / `--append` | Append to file or pass `--append` to CLI |
+| `-dry-run` / `--dry-run` | Print Markdown only |
+| `-obsidian` | Prefer Obsidian CLI write |
+| `-out` / `--out` | Write to this `.md` path |
+| `-fixture` / `--fixture` | Skip API; use saved JSON |
+| `-h` / `--help` | Help |
 
-## Note format
-
-Generated Markdown includes optional frontmatter (`title`, `created_at`, `tags`) and:
-
-- `## Question`
-- `## Additional Context` (only if `--context` is set)
-- Model output with `## Key Findings`, `## Sources`, `## Suggested Next Questions`
+With `ONCE_DEFAULT_OUT_DIR` set and no `-out`: a `.md` file is written under that directory. With `-obsidian` and a failed CLI, the same directory is used as fallback.
 
 ## npm scripts
 
 | Script | Purpose |
 |--------|---------|
-| `npm run once` | Main command name (pass flags after `--`) |
-| `npm run once:demo` | Offline demo with `-research` + `-dry-run` |
+| `npm run once` | Run the CLI (pass flags after `--`) |
 
 ## Troubleshooting
 
-- **`PERPLEXITY_API_KEY is not set`** — Export the variable or use `--fixture` for offline tests.
-- **`Obsidian CLI not available` / `command not found: obsidian`** — Enable and register the CLI in Obsidian, add it to `PATH`, restart the terminal.
-- **`Obsidian CLI failed`** — Check vault name (`--vault` / `OBSIDIAN_VAULT`), folder path, and that the app is allowed to run CLI commands. Try `obsidian create --help` locally.
-- **Very large notes** — If the combined Markdown exceeds ~200k characters, the script exits with a hint to use `--dry-run` and save manually (OS argv limits for `--content`).
+- **`PERPLEXITY_API_KEY is not set`** — Export it or use `--fixture` for offline tests.
+- **`Obsidian CLI not available`** — Use file mode (`ONCE_DEFAULT_OUT_DIR` or `-out`), or fix CLI in Obsidian settings. Check `obsidian --help`.
+- **Very large notes** — Above ~200k characters, Obsidian `--content` may fail; use `-out` or `-dry-run` and save manually.
 
 ## Project layout
 
-- [`scripts/research-to-obsidian.mjs`](scripts/research-to-obsidian.mjs) — Pipeline entrypoint
-- [`fixtures/sample-completion.json`](fixtures/sample-completion.json) — Sample API-shaped JSON for tests
+- [`scripts/research-to-obsidian.mjs`](scripts/research-to-obsidian.mjs) — Entrypoint
+- [`fixtures/sample-completion.json`](fixtures/sample-completion.json) — Sample fixture for tests

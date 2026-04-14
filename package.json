@@ -1,14 +1,13 @@
 {
   "name": "re-search",
   "version": "1.0.0",
-  "description": "Perplexity API research pipeline → Obsidian vault via Obsidian CLI",
+  "description": "Perplexity API → Markdown notes (vault folder or Obsidian CLI)",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "once": "node scripts/research-to-obsidian.mjs",
-    "once:demo": "node scripts/research-to-obsidian.mjs --fixture fixtures/sample-completion.json -research \"Briefly: what is Obsidian Markdown?\" -dry-run"
+    "once": "node scripts/research-to-obsidian.mjs"
   }
 }

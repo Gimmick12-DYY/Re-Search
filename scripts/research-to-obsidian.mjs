@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * Perplexity → Obsidian pipeline (on-demand CLI).
- * Requires: Node 18+, PERPLEXITY_API_KEY, Obsidian CLI on PATH (unless --dry-run).
+ * Requires: Node 18+, PERPLEXITY_API_KEY (unless --fixture). Optional: ONCE_DEFAULT_OUT_DIR for short writes.
  */
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
-const PERPLEXITY_URL = 'https://api.perplexity.ai/v1/chat/completions';
+const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions';
 const DEFAULT_MODEL = 'sonar';
 /** Very large bodies can exceed OS argv limits when passed as --content */
 const CONTENT_ARG_SAFE_MAX = 200_000;
@@ -16,13 +17,13 @@ function printHelp() {
   console.log(`
 once — Perplexity API → Obsidian vault
 
-Available commands:
-  npm run once -- -research "Your question" -obsidian
-  npm run once:demo
+Typical usage:
+  npm run once -- -research "Your question"
+ (set ONCE_DEFAULT_OUT_DIR to your vault Import folder)
 
 Script usage:
   node scripts/research-to-obsidian.mjs --query "Your question" [options]
-  npm run once -- -research "Your question" -obsidian
+  npm run once -- -research "Your question" [-obsidian]
 
 Required:
   --query <text>           Research question (or prompt)
@@ -44,6 +45,8 @@ Options:
   --dry-run                Print Markdown only; do not call Obsidian CLI
   -dry-run                 Alias for --dry-run
   -obsidian                Explicitly enable Obsidian write mode (no-op if already enabled)
+  --out <path>             Write markdown directly to a .md file (bypasses Obsidian CLI)
+  -out <path>              Alias for --out
   --fixture <jsonPath>     Use a saved API JSON response instead of calling Perplexity (for tests)
   -fixture <jsonPath>      Alias for --fixture
   -h, --help               Show this help
@@ -51,11 +54,13 @@ Options:
 Environment:
   PERPLEXITY_API_KEY       Required unless --fixture is used
   OBSIDIAN_VAULT           Optional default vault name
+  ONCE_DEFAULT_OUT_DIR     Optional default directory for auto file output
 
 Examples:
-  npm run once -- -research "Summarize CRISPR off-target mitigation" -obsidian
-  npm run once -- -research "Summarize CRISPR off-target mitigation" -dry-run
-  npm run once -- -research "..." -folder "Inbox" -title "CRISPR notes"
+  npm run once -- -research "Summarize CRISPR off-target mitigation"
+  npm run once -- -research "..." -out "/absolute/path/Import/note.md"
+  npm run once -- -research "..." -dry-run
+  npm run once -- -research "..." -folder "Inbox" -title "CRISPR notes" -obsidian
   npm run once -- --help
 `);
 }
@@ -71,6 +76,7 @@ function parseArgs(argv) {
     append: false,
     dryRun: false,
     obsidian: false,
+    outPath: null,
     fixture: null,
     help: false,
   };
@@ -130,6 +136,9 @@ function parseArgs(argv) {
         case 'model':
           out.model = val;
           break;
+        case 'out':
+          out.outPath = val;
+          break;
         case 'fixture':
           out.fixture = val;
           break;
@@ -163,6 +172,9 @@ function parseArgs(argv) {
           break;
         case 'model':
           out.model = val;
+          break;
+        case 'out':
+          out.outPath = val;
           break;
         case 'fixture':
           out.fixture = val;
@@ -338,10 +350,7 @@ function runObsidianCreate({ vault, notePath, markdown, append }) {
   }
 
   const args = ['create'];
-  if (vault) {
-    const v = vault.startsWith('vault=') ? vault : `vault=${vault}`;
-    args.push(v);
-  }
+  if (vault) args.push('--vault', vault);
   args.push(notePath);
   if (append) args.push('--append');
   args.push('--content', markdown);
@@ -365,6 +374,24 @@ function runObsidianCreate({ vault, notePath, markdown, append }) {
   }
 }
 
+function writeMarkdownFile({ outPath, markdown, append }) {
+  const absPath = resolve(outPath);
+  mkdirSync(dirname(absPath), { recursive: true });
+  if (append) {
+    appendFileSync(absPath, `${markdown}\n`, 'utf8');
+  } else {
+    writeFileSync(absPath, markdown, 'utf8');
+  }
+  return absPath;
+}
+
+function resolveAutoOutPath({ opts, notePath }) {
+  const dir = process.env.ONCE_DEFAULT_OUT_DIR?.trim();
+  if (!dir) return null;
+  const safeName = notePath.split('/').pop() || 'note';
+  return resolve(dir, `${safeName}.md`);
+}
+
 async function main() {
   let opts;
   try {
@@ -381,7 +408,7 @@ async function main() {
   }
 
   if (!opts.query?.trim()) {
-    console.error('Error: --query is required.');
+    console.error('Error: -research or --query is required.');
     printHelp();
     process.exitCode = 1;
     return;
@@ -440,9 +467,41 @@ async function main() {
     return;
   }
 
+  const explicitOutPath = opts.outPath?.trim() || null;
+  const autoOutPath = resolveAutoOutPath({ opts, notePath });
+  if (explicitOutPath || (!opts.obsidian && autoOutPath)) {
+    try {
+      const written = writeMarkdownFile({
+        outPath: explicitOutPath || autoOutPath,
+        markdown,
+        append: opts.append,
+      });
+      console.error(`Wrote markdown file: ${written}`);
+    } catch (e) {
+      console.error(`Failed to write output file: ${e.message || String(e)}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   if (!obsidianCommandExists()) {
+    if (autoOutPath) {
+      try {
+        const written = writeMarkdownFile({
+          outPath: autoOutPath,
+          markdown,
+          append: opts.append,
+        });
+        console.error(`Obsidian CLI unavailable. Fallback file written: ${written}`);
+        return;
+      } catch (e) {
+        console.error(`Failed to write fallback file: ${e.message || String(e)}`);
+        process.exitCode = 1;
+        return;
+      }
+    }
     console.error(
-      'Error: Obsidian CLI not available. Install Obsidian 1.12.4+, enable Settings → General → Command line interface, register the CLI, ensure `obsidian` is on PATH, then retry.'
+      'Error: Obsidian CLI not available. Install Obsidian 1.12.4+, enable Settings → General → Command line interface, register the CLI, ensure `obsidian` is on PATH, then retry. Or set ONCE_DEFAULT_OUT_DIR to auto-write markdown files.'
     );
     process.exitCode = 1;
     return;
@@ -458,13 +517,23 @@ async function main() {
       append: opts.append,
     });
   } catch (e) {
-    const msg = e.message || String(e);
-    if (msg.includes('--content-file') || msg.includes('content-file')) {
-      console.error(
-        'Error: This Obsidian CLI build may not support --content-file for large notes. Try shortening the response or upgrade Obsidian; or use --dry-run and paste manually.'
-      );
+    if (autoOutPath) {
+      try {
+        const written = writeMarkdownFile({
+          outPath: autoOutPath,
+          markdown,
+          append: opts.append,
+        });
+        console.error(`Obsidian CLI failed. Fallback file written: ${written}`);
+        return;
+      } catch (fallbackErr) {
+        console.error(`Obsidian failed: ${e.message || String(e)}`);
+        console.error(`Fallback failed: ${fallbackErr.message || String(fallbackErr)}`);
+        process.exitCode = 1;
+        return;
+      }
     }
-    console.error(msg);
+    console.error(e.message || String(e));
     process.exitCode = 1;
     return;
   }
