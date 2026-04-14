@@ -14,23 +14,38 @@ const CONTENT_ARG_SAFE_MAX = 200_000;
 
 function printHelp() {
   console.log(`
-research-to-obsidian — Perplexity API → Markdown → Obsidian CLI
+once — Perplexity API → Obsidian vault
 
-Usage:
+Available commands:
+  npm run once -- -research "Your question" -obsidian
+  npm run once:demo
+
+Script usage:
   node scripts/research-to-obsidian.mjs --query "Your question" [options]
+  npm run once -- -research "Your question" -obsidian
 
 Required:
   --query <text>           Research question (or prompt)
+  -research <text>         Alias for --query
 
 Options:
   --context <text>         Extra user context
+  -context <text>          Alias for --context
   --title <text>           Note title / base filename (default: dated slug from query)
+  -title <text>            Alias for --title
   --folder <path>          Subfolder inside vault, e.g. "Research/Inbox"
+  -folder <path>           Alias for --folder
   --vault <name>           Obsidian vault name (or set OBSIDIAN_VAULT)
+  -vault <name>            Alias for --vault
   --model <id>             Perplexity model (default: ${DEFAULT_MODEL})
+  -model <id>              Alias for --model
   --append                 Append to existing note instead of creating/overwriting
+  -append                  Alias for --append
   --dry-run                Print Markdown only; do not call Obsidian CLI
+  -dry-run                 Alias for --dry-run
+  -obsidian                Explicitly enable Obsidian write mode (no-op if already enabled)
   --fixture <jsonPath>     Use a saved API JSON response instead of calling Perplexity (for tests)
+  -fixture <jsonPath>      Alias for --fixture
   -h, --help               Show this help
 
 Environment:
@@ -38,8 +53,10 @@ Environment:
   OBSIDIAN_VAULT           Optional default vault name
 
 Examples:
-  npm run research -- --query "Summarize CRISPR off-target mitigation" --dry-run
-  npm run research -- --query "..." --folder "Inbox" --title "CRISPR notes"
+  npm run once -- -research "Summarize CRISPR off-target mitigation" -obsidian
+  npm run once -- -research "Summarize CRISPR off-target mitigation" -dry-run
+  npm run once -- -research "..." -folder "Inbox" -title "CRISPR notes"
+  npm run once -- --help
 `);
 }
 
@@ -53,6 +70,7 @@ function parseArgs(argv) {
     model: DEFAULT_MODEL,
     append: false,
     dryRun: false,
+    obsidian: false,
     fixture: null,
     help: false,
   };
@@ -67,8 +85,20 @@ function parseArgs(argv) {
       out.append = true;
       continue;
     }
+    if (a === '-append') {
+      out.append = true;
+      continue;
+    }
     if (a === '--dry-run') {
       out.dryRun = true;
+      continue;
+    }
+    if (a === '-dry-run') {
+      out.dryRun = true;
+      continue;
+    }
+    if (a === '-obsidian') {
+      out.obsidian = true;
       continue;
     }
     if (a.startsWith('--')) {
@@ -105,6 +135,49 @@ function parseArgs(argv) {
           break;
         default:
           throw new Error(`Unknown flag: --${key}`);
+      }
+      continue;
+    }
+    if (a.startsWith('-')) {
+      const key = a.slice(1);
+      let val;
+      if (key !== 'obsidian' && key !== 'append' && key !== 'dry-run') {
+        val = args[++i];
+        if (val == null) throw new Error(`Missing value for -${key}`);
+      }
+      switch (key) {
+        case 'research':
+          out.query = val;
+          break;
+        case 'context':
+          out.context = val;
+          break;
+        case 'title':
+          out.title = val;
+          break;
+        case 'folder':
+          out.folder = val;
+          break;
+        case 'vault':
+          out.vault = val;
+          break;
+        case 'model':
+          out.model = val;
+          break;
+        case 'fixture':
+          out.fixture = val;
+          break;
+        case 'append':
+          out.append = true;
+          break;
+        case 'dry-run':
+          out.dryRun = true;
+          break;
+        case 'obsidian':
+          out.obsidian = true;
+          break;
+        default:
+          throw new Error(`Unknown flag: -${key}`);
       }
       continue;
     }

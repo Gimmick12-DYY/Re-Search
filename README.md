@@ -28,32 +28,37 @@ export OBSIDIAN_VAULT="YourVaultName"
 ## Usage
 
 ```bash
+# Preferred command name
+npm run once -- -research "Your research question" -obsidian
+
 # Preview Markdown only (still calls Perplexity unless you use --fixture)
-npm run research -- --query "Your research question" --dry-run
+npm run once -- -research "Your research question" -dry-run
 
 # Create a note in the vault root (calls Obsidian CLI)
-npm run research -- --query "Your research question"
+npm run once -- -research "Your research question" -obsidian
 
 # Put the note in a folder inside the vault
-npm run research -- --query "..." --folder "Research/Inbox"
+npm run once -- -research "..." -folder "Research/Inbox" -obsidian
 
 # Custom title / filename base (sanitized)
-npm run research -- --query "..." --title "My Topic Note"
+npm run once -- -research "..." -title "My Topic Note" -obsidian
 
 # Append to an existing note with the same path
-npm run research -- --query "..." --folder "Research" --title "Running log" --append
+npm run once -- -research "..." -folder "Research" -title "Running log" -append -obsidian
 
 # Use a different Perplexity model
-npm run research -- --query "..." --model sonar-pro
+npm run once -- -research "..." -model sonar-pro -obsidian
 
 # Offline / CI: skip Perplexity using a saved JSON body (same shape as API response)
-npm run research -- --query "Fixture test" --fixture fixtures/sample-completion.json --dry-run
+npm run once -- -research "Fixture test" -fixture fixtures/sample-completion.json -dry-run
 ```
 
 ### CLI flags
 
 | Flag | Description |
 |------|-------------|
+| `-research` | Alias for `--query` (**required** unless `--query` is used) |
+| `-obsidian` | Explicit Obsidian-write mode for `once` command |
 | `--query` | **Required.** Research question or prompt |
 | `--context` | Extra context appended to the user message |
 | `--folder` | Vault subpath, e.g. `Research/Inbox` |
@@ -77,8 +82,8 @@ Generated Markdown includes optional frontmatter (`title`, `created_at`, `tags`)
 
 | Script | Purpose |
 |--------|---------|
-| `npm run research` | Runs `node scripts/research-to-obsidian.mjs` (pass flags after `--`) |
-| `npm run research:demo` | Offline demo: `--fixture` + `--dry-run` (no API key) |
+| `npm run once` | Main command name (pass flags after `--`) |
+| `npm run once:demo` | Offline demo with `-research` + `-dry-run` |
 
 ## Troubleshooting
 

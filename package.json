@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "research": "node scripts/research-to-obsidian.mjs",
-    "research:demo": "node scripts/research-to-obsidian.mjs --fixture fixtures/sample-completion.json --query \"Briefly: what is Obsidian Markdown?\" --dry-run"
+    "once": "node scripts/research-to-obsidian.mjs",
+    "once:demo": "node scripts/research-to-obsidian.mjs --fixture fixtures/sample-completion.json -research \"Briefly: what is Obsidian Markdown?\" -dry-run"
   }
 }
