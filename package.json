@@ -7,6 +7,9 @@
   "engines": {
     "node": ">=18"
   },
+  "bin": {
+    "once": "bin/once.mjs"
+  },
   "scripts": {
     "once": "node scripts/research-to-obsidian.mjs"
   }

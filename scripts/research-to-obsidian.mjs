@@ -18,6 +18,7 @@ function printHelp() {
 once — Perplexity API → Obsidian vault
 
 Typical usage:
+  once -research "Your question"          (after: cd repo && npm link)
   npm run once -- -research "Your question"
  (set ONCE_DEFAULT_OUT_DIR to your vault Import folder)
 

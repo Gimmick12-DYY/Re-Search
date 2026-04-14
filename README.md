@@ -21,29 +21,53 @@ export ONCE_DEFAULT_OUT_DIR="/path/to/your/vault/Import"
 export OBSIDIAN_VAULT="Gimmicks"
 ```
 
+### Run `once` from any directory (recommended)
+
+One-time link from the repo root:
+
+```bash
+cd "/path/to/Re-Search"
+npm link
+```
+
+After that, from **any** folder:
+
+```bash
+once -research "Your question"
+once --help
+```
+
+No `npm run` or `--` needed.
+
 ## Usage
 
-**Short command** (recommended when `ONCE_DEFAULT_OUT_DIR` is set):
+**From the repo** (when you have not linked globally):
 
 ```bash
 cd "/path/to/Re-Search"
 npm run once -- -research "Your question"
 ```
 
+**From anywhere** (after `npm link`):
+
+```bash
+once -research "Your question"
+```
+
 Other examples:
 
 ```bash
 # Preview only (stdout)
-npm run once -- -research "Your question" -dry-run
+once -research "Your question" -dry-run
 
 # Explicit file path
-npm run once -- -research "Your question" -out "/path/to/note.md"
+once -research "Your question" -out "/path/to/note.md"
 
 # Obsidian CLI (falls back to ONCE_DEFAULT_OUT_DIR if CLI fails)
-npm run once -- -research "Your question" -folder "Import" -obsidian
+once -research "Your question" -folder "Import" -obsidian
 
-# Offline test (no API)
-npm run once -- -research "Fixture" -fixture fixtures/sample-completion.json -dry-run
+# Offline test (no API; run from repo or use absolute -fixture path)
+once -research "Fixture" -fixture /path/to/Re-Search/fixtures/sample-completion.json -dry-run
 ```
 
 ### CLI flags
@@ -70,7 +94,8 @@ With `ONCE_DEFAULT_OUT_DIR` set and no `-out`: a `.md` file is written under tha
 
 | Script | Purpose |
 |--------|---------|
-| `npm run once` | Run the CLI (pass flags after `--`) |
+| `npm run once` | Same as global `once` (pass flags after `--`) |
+| `npm link` (once) | Installs global `once` on your PATH |
 
 ## Troubleshooting
 
