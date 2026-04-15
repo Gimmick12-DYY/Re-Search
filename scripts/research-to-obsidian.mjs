@@ -20,18 +20,20 @@ function printHelp() {
 once — Perplexity API → Obsidian vault
 
 Typical usage:
-  once -research "Your question"          (after: cd repo && npm link)
-  npm run once -- -research "Your question"
+  once -r "Your question"                 (after: cd repo && npm link)
+  npm run once -- -r "Your question"
  (set ONCE_DEFAULT_OUT_DIR to your vault Import folder)
 
 Script usage:
   node scripts/research-to-obsidian.mjs --query "Your question" [options]
-  npm run once -- -research "Your question" [-obsidian]
+  npm run once -- -r "Your question" [-obsidian]
 
 Required:
   --query <text>           Research question (or prompt)
+  -r <text>                Short alias for --query
   -research <text>         Alias for --query
   --summarize <pdfName>    Summarize a PDF from need folder
+  -sum <pdfName>           Short alias for --summarize
   -summarize <pdfName>     Alias for --summarize
 
 Options:
@@ -47,6 +49,8 @@ Options:
   -model <id>              Alias for --model
   --claude-model <id>      Claude model for -summarize (default: ${DEFAULT_CLAUDE_MODEL})
   -claude-model <id>       Alias for --claude-model
+  -slide                   Summarize as slide deck mode (for -sum/-summarize)
+  -study                   Summarize as academic paper mode (for -sum/-summarize)
   --append                 Append to existing note instead of creating/overwriting
   -append                  Alias for --append
   --dry-run                Print Markdown only; do not call Obsidian CLI
@@ -66,11 +70,12 @@ Environment:
   ONCE_NEED_DIR            Optional directory for source PDFs (default: sibling need folder)
 
 Examples:
-  npm run once -- -research "Summarize CRISPR off-target mitigation"
-  npm run once -- -summarize "paper.pdf"
-  npm run once -- -research "..." -out "/absolute/path/Import/note.md"
-  npm run once -- -research "..." -dry-run
-  npm run once -- -research "..." -folder "Inbox" -title "CRISPR notes" -obsidian
+  npm run once -- -r "Summarize CRISPR off-target mitigation"
+  npm run once -- -sum "paper.pdf" -study
+  npm run once -- -sum "slides.pdf" -slide
+  npm run once -- -r "..." -out "/absolute/path/Import/note.md"
+  npm run once -- -r "..." -dry-run
+  npm run once -- -r "..." -folder "Inbox" -title "CRISPR notes" -obsidian
   npm run once -- --help
 `);
 }
@@ -85,6 +90,7 @@ function parseArgs(argv) {
     vault: null,
     model: DEFAULT_MODEL,
     claudeModel: DEFAULT_CLAUDE_MODEL,
+    summarizeType: 'study',
     append: false,
     dryRun: false,
     obsidian: false,
@@ -111,12 +117,28 @@ function parseArgs(argv) {
       out.dryRun = true;
       continue;
     }
+    if (a === '--slide') {
+      out.summarizeType = 'slide';
+      continue;
+    }
+    if (a === '--study') {
+      out.summarizeType = 'study';
+      continue;
+    }
     if (a === '-dry-run') {
       out.dryRun = true;
       continue;
     }
     if (a === '-obsidian') {
       out.obsidian = true;
+      continue;
+    }
+    if (a === '-slide') {
+      out.summarizeType = 'slide';
+      continue;
+    }
+    if (a === '-study') {
+      out.summarizeType = 'study';
       continue;
     }
     if (a.startsWith('--')) {
@@ -168,13 +190,25 @@ function parseArgs(argv) {
     if (a.startsWith('-')) {
       const key = a.slice(1);
       let val;
-      if (key !== 'obsidian' && key !== 'append' && key !== 'dry-run') {
+      if (
+        key !== 'obsidian' &&
+        key !== 'append' &&
+        key !== 'dry-run' &&
+        key !== 'slide' &&
+        key !== 'study'
+      ) {
         val = args[++i];
         if (val == null) throw new Error(`Missing value for -${key}`);
       }
       switch (key) {
+        case 'r':
+          out.query = val;
+          break;
         case 'research':
           out.query = val;
+          break;
+        case 'sum':
+          out.summarize = val;
           break;
         case 'summarize':
           out.summarize = val;
@@ -211,6 +245,12 @@ function parseArgs(argv) {
           break;
         case 'obsidian':
           out.obsidian = true;
+          break;
+        case 'slide':
+          out.summarizeType = 'slide';
+          break;
+        case 'study':
+          out.summarizeType = 'study';
           break;
         default:
           throw new Error(`Unknown flag: -${key}`);
@@ -279,29 +319,42 @@ function buildNoteMarkdown({ title, query, context, body, createdAt }) {
 const SYSTEM_PROMPT = `You are a research assistant. Answer using clear markdown with exactly these top-level sections (in this order), each heading on its own line starting with ##:
 
 ## Key Findings
-Use bullets or a short numbered list. Cite sources inline with markdown links where URLs exist.
+Use concise bullet points for the most important findings.
 
-## Sources
-List each source as a markdown link: [label](url). If you cannot provide a URL, describe the source in plain text without a fake link.
+## Detailed Response
+Provide a fuller explanation with context, trade-offs, and important nuances.
 
-## Suggested Next Questions
-A numbered list of 3–7 focused follow-up questions.
+## Citations
+List the sources used by Perplexity as markdown links: [label](url). If URL is unavailable, include plain-text source descriptors without fake links.
 
 Do not add any heading before the first "## Key Findings". Do not wrap the answer in a code fence.`;
 
-const PDF_SUMMARY_PROMPT = `You are a PDF summarization assistant. Read the provided PDF document and produce markdown with exactly these top-level sections:
+const PDF_SUMMARY_PROMPT_STUDY = `You are an academic-paper summarization assistant. Read the provided PDF document and produce markdown with exactly these top-level sections:
 
-## Document Overview
-2-4 bullets capturing topic, purpose, and scope.
+## Brief Abstract
+Write a compact 3-5 sentence abstract-level summary of the paper.
+
+## Methodology
+Summarize study design, data, procedures, and analytic approach clearly.
 
 ## Key Findings
-5-10 concise bullets of the most important insights.
+Use bullets for the principal findings and evidence.
 
-## Actionable Takeaways
-3-7 bullets of practical steps or implications.
+## Evaluation
+Assess strengths, limitations, validity concerns, and practical significance.
 
-## Sources
-If source metadata is unknown, include one bullet describing this summary was generated from the provided PDF text extraction.
+Do not wrap output in a code block.`;
+
+const PDF_SUMMARY_PROMPT_SLIDE = `You are a slide-deck summarization assistant. Read the provided PDF document and produce markdown with exactly these top-level sections:
+
+## Main Structure
+List the major sections/themes of the slide deck in order.
+
+## Section-by-Section Summary
+For each major section, provide a concise but detailed summary of the key points and supporting details.
+
+## Key Takeaway
+Provide the single most important overall takeaway and 2-4 supporting bullets.
 
 Do not wrap output in a code block.`;
 
@@ -357,7 +410,7 @@ async function callClaude({
   model,
   query,
   context,
-  systemPrompt = PDF_SUMMARY_PROMPT,
+  systemPrompt = PDF_SUMMARY_PROMPT_STUDY,
   pdfBase64,
 }) {
   const userParts = [`Task:\n${query.trim()}`];
@@ -543,7 +596,7 @@ async function main() {
   const hasResearch = Boolean(opts.query?.trim());
   const hasSummarize = Boolean(opts.summarize?.trim());
   if (!hasResearch && !hasSummarize) {
-    console.error('Error: provide -research/--query or -summarize/--summarize.');
+    console.error('Error: provide -r/-research/--query or -sum/-summarize.');
     printHelp();
     process.exitCode = 1;
     return;
@@ -605,7 +658,10 @@ async function main() {
           model: opts.claudeModel,
           query: effectiveQuery,
           context: effectiveContext,
-          systemPrompt: PDF_SUMMARY_PROMPT,
+          systemPrompt:
+            opts.summarizeType === 'slide'
+              ? PDF_SUMMARY_PROMPT_SLIDE
+              : PDF_SUMMARY_PROMPT_STUDY,
           pdfBase64: summarizePdfBase64,
         });
       } else {

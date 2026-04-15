@@ -37,6 +37,7 @@ After that, from **any** folder:
 
 ```bash
 once -research "Your question"
+once -r "Your question"
 once --help
 ```
 
@@ -55,34 +56,40 @@ npm run once -- -research "Your question"
 
 ```bash
 once -research "Your question"
-once -summarize "paper.pdf"
+once -r "Your question"
+once -sum "paper.pdf" -study
 ```
 
 Other examples:
 
 ```bash
 # Preview only (stdout)
-once -research "Your question" -dry-run
+once -r "Your question" -dry-run
 
 # Explicit file path
-once -research "Your question" -out "/path/to/note.md"
+once -r "Your question" -out "/path/to/note.md"
 
-# Summarize PDF from need folder (ONCE_NEED_DIR or inferred sibling folder)
-once -summarize "paper.pdf"
+# Summarize academic paper PDF from need folder
+once -sum "paper.pdf" -study
+
+# Summarize slide deck PDF from need folder
+once -sum "slides.pdf" -slide
 
 # Obsidian CLI (falls back to ONCE_DEFAULT_OUT_DIR if CLI fails)
-once -research "Your question" -folder "Import" -obsidian
+once -r "Your question" -folder "Import" -obsidian
 
 # Offline test (no API; run from repo or use absolute -fixture path)
-once -research "Fixture" -fixture /path/to/Re-Search/fixtures/sample-completion.json -dry-run
+once -r "Fixture" -fixture /path/to/Re-Search/fixtures/sample-completion.json -dry-run
 ```
 
 ### CLI flags
 
 | Flag | Description |
 |------|-------------|
-| `-research` | Research question (alias for `--query`) |
-| `-summarize` | Summarize a PDF file from need folder |
+| `-r` / `-research` | Research question (alias for `--query`) |
+| `-sum` / `-summarize` | Summarize a PDF file from need folder |
+| `-slide` | Summarize as slide-deck mode (`-sum`) |
+| `-study` | Summarize as academic-paper mode (`-sum`, default) |
 | `--query` | Same as `-research` |
 | `-context` / `--context` | Extra context |
 | `-folder` / `--folder` | Subpath for note name (e.g. `Import`) |
@@ -98,7 +105,7 @@ once -research "Fixture" -fixture /path/to/Re-Search/fixtures/sample-completion.
 | `-h` / `--help` | Help |
 
 With `ONCE_DEFAULT_OUT_DIR` set and no `-out`: a `.md` file is written under that directory. With `-obsidian` and a failed CLI, the same directory is used as fallback.
-For `-summarize`, source PDFs are loaded from `ONCE_NEED_DIR`; if unset, `once` infers `../need` beside your output folder.
+For `-sum`/`-summarize`, source PDFs are loaded from `ONCE_NEED_DIR`; if unset, `once` infers `../Need` beside your output folder.
 
 ## npm scripts
 
@@ -109,8 +116,8 @@ For `-summarize`, source PDFs are loaded from `ONCE_NEED_DIR`; if unset, `once` 
 
 ## Troubleshooting
 
-- **`PERPLEXITY_API_KEY is not set`** — Needed for `-research` (or use `--fixture`).
-- **`ANTHROPIC_API_KEY is not set`** — Needed for `-summarize` (or use `--fixture`).
+- **`PERPLEXITY_API_KEY is not set`** — Needed for `-r`/`-research` (or use `--fixture`).
+- **`ANTHROPIC_API_KEY is not set`** — Needed for `-sum`/`-summarize` (or use `--fixture`).
 - **`Obsidian CLI not available`** — Use file mode (`ONCE_DEFAULT_OUT_DIR` or `-out`), or fix CLI in Obsidian settings. Check `obsidian --help`.
 - **Very large notes** — Above ~200k characters, Obsidian `--content` may fail; use `-out` or `-dry-run` and save manually.
 
